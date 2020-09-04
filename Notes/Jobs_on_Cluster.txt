@@ -1,0 +1,17 @@
+JOB 1:
+Date: 21/8/2020
+Code: fwest
+JOBID: 21856730
+
+
+JOB 2: (with higher nodes and ppn)
+Date: 22/8/2020
+Code: fwest
+JOBID: 21869098
+
+
+
+JOB 3: (added parfor)
+Date: 23/8/2020
+Code: fwest
+JOBID: 21878929

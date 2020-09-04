@@ -1,0 +1,113 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \documentclass{article}
+% \usepackage{../sty/Preamble_Notes}
+% \usepackage{hyperref}
+\documentclass{../cls/NotesV2_Class}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+%Heading of the Notes
+% \lecture{4}{Behavioral epidemiology}{Shomak Chakrabarti}{July 27, 2020.}
+% %\footnotetext{email: sxc615@psu.edu; Last Edit: July 2,2020.}
+\input{NotesV2_Title/Coding_ReadMe_Title}
+
+
+\textsc{Purpose of the note}:\\
+This readme files documents the procedures and features of the MATLAB codes realted to the project \textit{Behavioural Epidemiology}. There are 4 files that is the key focus of this note:
+\begin{itemize}
+	\item \textit{Initialization Codes}
+	\begin{itemize}
+		\item \textbf{BE\_DataSetup.m}: Loads the dataset and initializes the fixed parameters
+	\end{itemize}
+	\item \textit{Estimation Codes}
+	\begin{itemize}
+		\item \textbf{BE\_EstimationCode.m}: The main file that invokes the estimation exercise
+		\item \textbf{Objective\_Avec.m}: The objective function that describes the agent's problem for the estimation exercise
+	\end{itemize}
+	\item \textit{Simulation Codes}
+	\begin{itemize}
+		\item \textbf{BE\_SimulationCode.m}: This is the main file that invokes the simulation exercise
+		\item \textbf{Objective\_Solve.m}: The objective function that solves the full problem for the simulation exercise
+	\end{itemize}
+\end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{General Organization}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{algorithm}
+	\caption{Estimate $\beta, \gamma, \phi_+, \frac{\phi_-}{\phi_+}, rl2, c$}
+	\begin{algorithmic}
+		\REQUIRE \texttt{\textcolor{blue}{Datafile} $\rightarrow$ \textit{data\_upd3xlsx.xlsx}}
+		\STATE \textbf{Data}: Poisitve cases (POSN), Negative cases (NEGN), Deaths (DN), Hospitalization (H)
+		\STATE \textbf{Fixed Parameters}: $t_i, t_h, e_0, \delta_p, \delta_a, \lambda_{min}, ifr, rl1, \beta_{share}, mi, mh$
+		\STATE \textbf{Vaccine Arrival}: $p$ $\rightarrow$ \texttt{Negative Binomial($\mu=540, \sigma^2=180$)}
+		\STATE \textbf{Misc. Fixed Parameters}: $pop, T, Tmax, p, q$
+		\STATE
+		\REQUIRE \texttt{\textcolor{blue}{Smoothening data}}:
+		\STATE Smooth POSN, NEGN, DN, H $\rightarrow$ use \textit{5-period moving average}
+		\STATE Extrapolate Tests: $X_t = max\{\omega_0+ \omega_1(POSNr+NEGNr)^2, 1e6\}$
+		\ENSURE \textcolor{red}{Save Parameters $\rightarrow$ \textit{Initial\_Parameters.mat}}
+		\STATE
+		\STATE
+		\REQUIRE \textcolor{blue}{Parameter set $\rightarrow$ \textit{Initial\_Parameters.mat}}
+		\STATE \textbf{Bounds}: for $\beta, \gamma, \phi_+, \frac{\phi_-}{\phi_+}, rl2, c$
+		\STATE \textcolor{blue}{\textsc{Solve Agent's problem}}
+		\STATE \textbf{Optimization Routine}: $\rightarrow$ \textit{Particle Swarm}: 100 particles
+		\WHILE{Iterations $\leq\;50$ $or$ Tolerance $\leq\;1e-12$}
+			\STATE Generate \textit{random swarm (size 100)} of Parameters
+			\STATE \textbf{Evaluate Objective function} $\rightarrow$
+			\STATE Initialize variable: $S^1_1=1-e0; I^1_1=e0$
+			\STATE Calculate $\lambda_t=\begin{cases}
+			1 & \text{ for } T\in\{1,2,\ldots, 54\}\\
+			\sqrt{1-\frac{1-\lambda_{min}}{(\frac{70}{55}-1)^{rl1}}\big(\frac{t}{55}-1\big)^{rl1}} & \text{ for } T\in\{55,\ldots,70\} \\
+			L_{min}  & \text{ for } T\in\{71,\ldots,100\} \\
+			\sqrt{L_{min}^2(rl2^{t-101})+1(1-rl2^{t-101})} & \text{ for } T\in\{101,\ldots, T\}\\
+			\end{cases}$
+			\STATE Solve \textit{State Variables} forward (with initial conditions)
+			\STATE Solve \textit{Adjoint Variables} backward (with terminal conditions)
+			\WHILE{Iterations $\leq\;30$ $or$ Tolerance $\leq\;1e-4$}
+				\STATE Given \textit{parameters}: solve for Control Variable $\alpha^k_t$ $\rightarrow$ updating weights $b=0.9$
+				\STATE Express $\alpha^k_t$ as $\kappa\rightarrow 0$.
+			\ENDWHILE
+			\STATE Generate moments: (1) $M^1_t=[POSN_t - XP0_t]$; (2) $M^2_t=[DN_t-D0_t]$; (3) $M_t^3=[HST_t-H_t]$
+			where $XP0$: No of positive tests, $DN$: No. of deaths, $HST$: No of hospitalized
+			\STATE Calculate Mean Squared Errors: $\sum_{i=1}^3\omega_i\{\sum_{t=1}^T(M^{i}_t)^{2}\}$ where $\omega_i$ are weights: $\omega_1 = \big(\frac{pop*1e6}{max(POSN)}\big)^2$, $\omega_2 = \big(\frac{pop*1e6}{max(DN)}\big)^2$, $\omega_3 = \big(\frac{pop*1e6}{max(HST)}\big)^2$
+			\IF{Mean Squared Error $\leq\;1e-12$}
+			\STATE \textbf{Break}
+			\ENDIF
+		\ENDWHILE
+		\ENSURE Output: $\rightarrow$ $XP0,D,XN0,SR,SA,\lambda$
+		\ENSURE Plot: (1) $XP0\;vs.\;POSN$; (2) $D\;vs.\;DN$; (3) $\frac{SR}{SA}=\;vs.\;\lambda$ where $\frac{SR_t}{SA_t}=\sum_{k=1}^t\alpha^k_t\frac{S^k_t}{SA_t}$
+		\ENSURE \textcolor{red}{Save Parameters $\rightarrow$ \textit{EstimationParameters.mat}}
+	\end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}
+	\caption{Simulate Optimal $\eta^k_t, \chi_t, \lambda_t, \alpha^k_t$}
+	\begin{algorithmic}
+			\REQUIRE \textcolor{blue}{Parameter set $\rightarrow$ \textit{EstimationParameters.mat}}
+			\STATE Initialize $\chi_1=0, \eta^1_t=0, \lambda_1=Lmin, \alpha^1_1=0.5$
+			\STATE Set $\delta_A=[0.9899,0.9949, 0.9989, 0.9994]$ and $b=[0.99, 0.995, 0.999, 0.9999]$
+			\FOR{ each $b$ and $\delta_A$}
+			\STATE \textcolor{blue}{\textsc{Solve Full Problem}}
+			\WHILE{Iterations $\leq\;10000$ $or$ Tolerance $\leq\;1$}
+			\ENDWHILE
+			\ENDFOR
+	\end{algorithmic}
+\end{algorithm}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Structure of Codes}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

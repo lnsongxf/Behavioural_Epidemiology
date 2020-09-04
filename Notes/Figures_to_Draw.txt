@@ -1,0 +1,16 @@
+Figures to draw:
+
+Ref folder: fwd
+1. Cumulative daily deaths vs time : ifr 0.34%; 0.2% (ref d40,d50)
+2. economic % social particiaption (%) vs time = optimal lockdown, eqm social distancing (ref I40_2, I40_3, I50_2, I50_3)
+3. reproduction number vs time: econ activities, social activities, aggregate (ref r040_2, r040_3, r050_2, r050_3)
+4. daily tests capacity vs time: model, data (ref tests)
+
+
+Ref folder: fwdslides
+1. daily deaths vs time; model, data (ref d2, d34)
+2. current hospitalized vs time: model, data (ref h2, h34)
+3. daily negative tests vs time: model, data (ref n2, n34)
+4. daily positive tests vs time: model, data (ref p2, p34)
+5. daily recoveries vs time: model, data (ref r2, r34)
+

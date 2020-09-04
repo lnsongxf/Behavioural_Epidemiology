@@ -1,0 +1,298 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \documentclass{article}
+% \usepackage{../sty/Preamble_Notes}
+% \usepackage{hyperref}
+\documentclass{../cls/NotesV2_Class}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+%Heading of the Notes
+% \lecture{4}{Behavioral epidemiology}{Shomak Chakrabarti}{July 27, 2020.}
+% %\footnotetext{email: sxc615@psu.edu; Last Edit: July 2,2020.}
+\input{NotesV2_Title/NotesV2_Title}
+
+
+\textit{Note}: For the purpose of this note, `code' and `default parameters' refers to the \textsc{Matlab} code sent by Ilia on \textbf{July 23, 2020}.\\
+
+
+Check Latest Additions: Section \ref{July28Meeting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Purpose of the note}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This note describes the work done on the \textsc{Matlab} code for solving the agents' and government's optimization problem. The two basic files are:
+\begin{itemize}
+	\item $fwsolveAvec.m$ - this function (1) describes the first order conditions for the agent's problem, and (2) define the least squares objective function
+	\item $fwtest.m$ is the main file that (1) loads the data and constructs the time series variables, (2) invokes the optimization routine to minimize $fwsolveAvec.m$, and (3) plots the optimal rules
+\end{itemize}
+
+The following sections detail some of the queries I have regarding the code and results obtained from playing around with the parameters.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Queries about the code}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+I have a few questions regarding the code:
+\begin{itemize}
+	\item How was the value of $Tm, Tv$ fixed?
+	\item Why is $Ns$ that specific function of $Tm,\;Tv$?
+	\item In \textsc{subplot(2,2,3)}, the red line is plotting $\frac{\sum_{k=1}^t\alpha^k_tS^k_t}{\sum_{k=1}^tS^k_t}$. Why does this plot exactly mimic the mesh of \textsc{subplot(2,2,4)}?
+	\item How is $rl1$ and $rl2$ being estimated from the data?
+	\item One problem with derivative free method like \textsc{particle swarm} is that they take a large number of iterations to arrive at the optimum.\footnote{See Tom Sargent's QuantEcon lecture notes for an example, among other soures like \textsc{pyswarm} documentation.} Given this, is it prudent to terminate the optimization after 50 iterations?
+\end{itemize}
+
+With the last point in mind (as well as for my own understanding), I am recoding the program in \textsc{Python} and \textsc{Julia}. While recoding from Matlab to Julia is easier, the derivative free optimization techniques are not as well documented in the latter. On the other hand, the \textsc{pyswarm} is much better documented than either Matlab or Julia, but recoding in Python is a bit non-trivial - the indexing of python is slightly different from the other languages (indices start with 0 in python, while 1 for the other two). This can lead to both run-time and syntactic errors.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results with Default Parameters}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Notes on the paramters}
+Before discussing the results, it is prudent to have a brief overview of the way the parameters have been initialised.\footnote{written after the meeting on July 23, 2020.}
+\begin{itemize}
+	\item $e0$: This is the initial number\footnote{Is this an absolute number? I think the interpretation of $e0=10$ would be 10 infected persons in a total population of 382.2*1e6.} of \textit{infected} agents in the economy. This is set to 10. [\textsc{justification}?]
+	\item $ti$: Initialized to 10. Obtained from medical journals and other papers: [\textsc{add sources}]
+	\item $th$: Initialized to 8. [\textsc{add sources}?]
+	\item $mh$: obtained from a least-squares fit of $DN$ on $HST$ (i.e. it measures the rate at which hospitalized agents die from the virus)
+	\item $mi$: set such that $mi\times mh = 0.0034$. [\textsc{Why this number?}\footnote{Rohit mentioned this is number is obtained from medical journals.}]
+	\item $eta$ and $beta$: This is not directly in the model, and denotes the following: $beta = \beta_s+\beta_w$, $eta = \frac{\beta_w}{\beta}$. This is because $\beta_s$ and $\beta_w$ cannot be identified separately from the model (\textit{get a better understanding why}). $eta$ and $beta$ is initialised to 0.5 - i.e. $\beta_s = \beta_w =0.25$. Moreover, $eta$ has been fixed in the default parameter set - it seems there is an identification problem for $eta$ as well (have relaxed it in the next section). $beta$, on the other hand, can be determined from the model. Other papers seem to show that the optimal value of $beta$ should be around 0.3.
+	\item $\phi\_minus/phi\_plus$: This is the ratio of the infection cost parameters $\frac{\phi^-}{\phi^+}$. Initially set to 0.1. Once again, this is set as a constant due to identification issues in the model - the data isnt rich enough. [\textit{what data may help this? What is the variation we need to identify this parameter?}]
+	\item $phi\_plus$: This parameter can be determined from the model itself. Initial bounds are [0,200] - no justification as of yet. [\textit{Why is it so high? Is there any normalization issue that I did not look at?}]
+	\item $gamma$ and $c$: They can be determined from the model. The initial bounds are [0.05, 0.25] and [0.01, 0.5] respectively.
+	\item $rl1$ and $rl2$: Need a better understanding of this. Its used to obtain the lockdown parameter $\lambda_t$. They only enter the $L$ vector in \textit{fwsolveAvec.m} function.
+\end{itemize}
+
+\subsection{Result}
+
+This section shows the results of the program by using the \textit{default parameters} that were provided in Ilia's July 23 code. The code was stopped after \textit{50 iterations} with the objective function value of 5.46 (see figure below). The parameters and their corresponding optimal values are enumerated below:
+
+\begin{center}
+\begin{tabular}{ |p{3cm}||p{6cm}|p{2cm}|p{2cm}|  }
+ \hline
+ \begin{center}Parameter\end{center} & \begin{center}Expression\end{center} & \begin{center}Value\end{center} & \begin{center}Optimum\end{center} \\
+ \hline
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Fixed}} \\
+ \hline
+ $e0$   &  initial susceptible  & 10 & 10\\
+ $ti$ & $t_i$ & 10 & 10 \\
+ $th$ & $t_h$ & 8 & 8\\
+ $mi$ & $m_i$ (from data) & 0.0154 & 0.0154 \\
+ $mh$ & $m_h$ (from data) & 0.2202 & 0.2202\\
+ $eta$ & initial value for $\beta_w,\beta_s$ & 0.5 & 0.5 \\
+ $phi\_minus/phi\_plus$ & ratio of infection cost parameters $\frac{\phi^-}{\phi^+}$ & 0.1 & 0.1 \\
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Flexible}} \\
+ \hline
+ $beta$ & $\beta$ & [0.20, 0.40] & 0.3423\\
+ $gamma$ & $\gamma$ & [0.05, 0.25] & 0.0992 \\
+ $phi\_plus$ & $\phi^+$ & [0,200] & 197.7323\\
+ $rl1$ & & [0.95, 0.995] & 0.995\\
+ $rl2$ & & [0.95, 0.995] & 0.995\\
+ $c$ & cost parameter $c$ & [0.01, 0.50] & 0.3653\\
+ \hline
+\end{tabular}
+\end{center}
+
+A quick glance at the optimal value shows that both $rl1$ and $rl2$ are hitting the upper boundaries. The optimal $phi\_plus$ is very close to the upper bounary, but not quite touching it yet. The rest of the variables are showing interior solutions.
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Default_pars/VF_50iters.jpg}
+\end{figure}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Default_pars/OP_50iters.jpg}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Implications of modifying parameters}\label{July23Meeting}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Changing $eta$}
+This section provides results for the problem when I allow $eta$ to be determined from the model. The initial bounds were set as [0.25,0.9] and thus includes 0.5 in its interior. I terminate the problem after the 50th iteration with the objective function value of 1.94 (see the figure below). This is substantially lower than the when $eta$ was fixed to 0.5. The parameters and the optimal values are described in the table below:
+
+\begin{center}
+\begin{tabular}[h]{ |p{3cm}||p{6cm}|p{2cm}|p{2cm}|  }
+ \hline
+ \begin{center}Parameter\end{center} & \begin{center}Expression\end{center} & \begin{center}Value\end{center} & \begin{center}Optimum\end{center} \\
+ \hline
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Fixed}} \\
+ \hline
+ $e0$   &  initial susceptible  & 10 & 10\\
+ $ti$ & $t_i$ & 10 & 10 \\
+ $th$ & $t_h$ & 8 & 8\\
+ $mi$ & $m_i$ (from data) & 0.0154 & 0.0154 \\
+ $mh$ & $m_h$ (from data) & 0.2202 & 0.2202\\
+ %$eta$ & initial value for $\beta_w,\beta_s$ & 0.5 & 0.5 \\
+ $phi\_minus/phi\_plus$ & ratio of infection cost parameters $\frac{\phi^-}{\phi^+}$ & 0.1 & 0.1 \\
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Flexible}} \\
+ \hline
+ \textcolor{red}{$eta$} & \textcolor{red}{initial values of }$\textcolor{red}{\beta_w,\beta_s}$ & \textcolor{red}{[0.25,0.9]} & \textcolor{red}{0.833} \\
+ $beta$ & $\beta$ & [0.20, 0.40] & 0.3176\\
+ $gamma$ & $\gamma$ & [0.05, 0.25] & 0.0893 \\
+ $phi\_plus$ & $\phi^+$ & [0,200] & \textcolor{orange}{0}\\
+ $rl1$ & & [0.95, 0.995] & 0.995\\
+ $rl2$ & & [0.95, 0.995] & 0.995\\
+ $c$ & cost parameter $c$ & [0.01, 0.50] & 0.5\\
+ \hline
+\end{tabular}
+\end{center}
+
+Compared to the default setup, the optimal value of $eta$ is higher at 0.833 (instead of the fixed value of 0.5).\footnote{This seems to be the global optimum for $eta$. If I fix the other paramters and change the bounds of $eta$ to [0.25, 0.7], then the optimal value of $eta$ hits the upper boundary.} The optimal value of $beta$ is lower than the default setup and is closer to 0.3. The $gamma$ parameter is slightly lower as well. $rl1$ and $rl2$ are hitting the boundaries as before, and the cost paramter $c$ has increased to hit the boundary at 0.5 (I think I need to increase this boundary to counteract the higher value of $eta$). Comparing the 4 subplots in this case with the default case shows that the higher value of $eta$ gives a better fit to the model [\textsc{Intuition}?].
+
+The big issue here is that $phi\_plus=0$ in the optimal solution. This seems quite strange to me - I am trying to tinker with the other bounds to see if this persist:
+% \paragraph{Changing $phi\_minus/phi\_plus$}: One possibility is to change the ratio of the infection cost parameter. This does not help either. After 50 iterations, this still leaves the optimal value of $phi\_plus=0$. The only change happens with the optimal value of $eta$ which comes closer to 0.8. (Since the estimates are very similar, I am not adding the table here as of now)
+% [\textsc{Currently working on the other parameters}]
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_eta/VF_50iters.jpg}
+\end{figure}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_eta/OP_50iters.jpg}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Changing $phi\_minus/phi\_plus$}
+% [\textsc{In Progress}]
+%
+% I performed the calculation by allowing $phi\_minus/phi\_plus$ to be determined within the model while keeping the other default parameters constant. The results were not very diffferent from the default setup, albeit with a lower function value. Consequently, I am not adding the output here. As of writing, the code with $eta$ and $phi\_minus/phi\_plus$ allowed to vary is still running. Ill add the results as soon as I get it.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Changing $eta$, $phi\_minus/phi\_plus$, $phi\_plus$, $c$}
+
+I terminate the problem after the 50th iteration with the objective function value of 1.918 (see the figure below). This provides the lowest value of the Objective function among the configurations that have been tried out so far. The parameters and the optimal values are described in the table below:
+
+\begin{center}
+\begin{tabular}[h]{ |p{3cm}||p{6cm}|p{2cm}|p{2cm}|  }
+ \hline
+ \begin{center}Parameter\end{center} & \begin{center}Expression\end{center} & \begin{center}Value\end{center} & \begin{center}Optimum\end{center} \\
+ \hline
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Fixed}} \\
+ \hline
+ $e0$   &  initial susceptible  & 10 & 10\\
+ $ti$ & $t_i$ & 10 & 10 \\
+ $th$ & $t_h$ & 8 & 8\\
+ $mi$ & $m_i$ (from data) & 0.0154 & 0.0154 \\
+ $mh$ & $m_h$ (from data) & 0.2202 & 0.2202\\
+ %$eta$ & initial value for $\beta_w,\beta_s$ & 0.5 & 0.5 \\
+ $\textcolor{red}{phi\_minus/phi\_plus}$ & \textcolor{red}{ratio of infection cost parameters} $\textcolor{red}{\frac{\phi^-}{\phi^+}}$ & \textcolor{red}{0.25} & \textcolor{red}{0.25} \\
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Flexible}} \\
+ \hline
+ $\textcolor{red}{eta}$ & \textcolor{red}{initial values of }$\textcolor{red}{\beta_w,\beta_s}$ & \textcolor{red}{[0.25,0.9]} & \textcolor{red}{0.8152} \\
+ $beta$ & $\beta$ & [0.20, 0.40] & 0.3174\\
+ $gamma$ & $\gamma$ & [0.05, 0.25] & 0.0894 \\
+ $\textcolor{red}{phi\_plus}$ & $\textcolor{red}{\phi^+}$ & \textcolor{red}{[0,100]} & \textcolor{orange}{0.3691}\\
+ $rl1$ & & [0.95, 0.995] & 0.995\\
+ $rl2$ & & [0.95, 0.995] & 0.995\\
+ $\textcolor{red}{c}$ & \textcolor{red}{cost parameter} $\textcolor{red}{c}$ & \textcolor{red}{[0.01, 0.99]} & 0.9698\\
+ \hline
+\end{tabular}
+\end{center}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_eta_c_phi-plus_phi-ratio/VF_50iters.jpg}
+\end{figure}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_eta_c_phi-plus_phi-ratio/OP_50iters.jpg}
+\end{figure}
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\hline
+\subsection{Changing $phi\_plus,\;c,\;phi\_minus/phi\_plus$}
+\label{July28Meeting}
+
+
+\begin{center}
+\begin{tabular}[h]{ |p{3cm}||p{6cm}|p{2cm}|p{2cm}|  }
+ \hline
+ \begin{center}Parameter\end{center} & \begin{center}Expression\end{center} & \begin{center}Value\end{center} & \begin{center}Optimum\end{center} \\
+ \hline
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Fixed}} \\
+ \hline
+ $e0$   &  initial susceptible  & 10 & 10\\
+ $ti$ & $t_i$ & 10 & 10 \\
+ $th$ & $t_h$ & 8 & 8\\
+ $mi$ & $m_i$ (from data) & 0.0154 & 0.0154 \\
+ $mh$ & $m_h$ (from data) & 0.2202 & 0.2202\\
+ $eta$ & $\frac{\beta_w}{\beta_s+\beta_w}$ & 0.5 & 0.5 \\
+ %$\textcolor{red}{phi\_minus/phi\_plus}$ & \textcolor{red}{ratio of infection cost parameters} $\textcolor{red}{\frac{\phi^-}{\phi^+}}$ & \textcolor{red}{0.25} & \textcolor{red}{0.25} \\
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Flexible}} \\
+ \hline
+$\textcolor{red}{phi\_minus/phi\_plus}$ & \textcolor{red}{ratio of infection cost parameters} $\textcolor{red}{\frac{\phi^-}{\phi^+}}$ & \textcolor{red}{[0.01,0.1]} & \textcolor{red}{0.0998} \\
+ $beta$ & $\beta_s+\beta_w $ & [0.20, 0.40] & 0.3453\\
+ $gamma$ & $\gamma$ & [0.05, 0.25] & 0.0985 \\
+ $\textcolor{red}{phi\_plus}$ & $\textcolor{red}{\phi^+}$ & \textcolor{red}{[0,300]} & \textcolor{red}{159.1343}\\
+ $rl1$ & & [0.95, 0.995] & 0.995\\
+ $rl2$ & & [0.95, 0.995] & 0.995\\
+ $\textcolor{red}{c}$ & \textcolor{red}{cost parameter} $\textcolor{red}{c}$ & \textcolor{red}{[0.01, 0.99]} & \textcolor{red}{0.3001}\\
+ \hline
+\end{tabular}
+\end{center}
+
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_phi-plus_c_phi-ratio/VF_50iters.jpg}
+\end{figure}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_phi-plus_c_phi-ratio/OP_50iters.jpg}
+\end{figure}
+
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\paragraph{Changing only $phi\_minus/phi\_plus$}:
+
+
+\begin{center}
+\begin{tabular}[h]{ |p{3cm}||p{6cm}|p{2cm}|p{2cm}|  }
+ \hline
+ \begin{center}Parameter\end{center} & \begin{center}Expression\end{center} & \begin{center}Value\end{center} & \begin{center}Optimum\end{center} \\
+ \hline
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Fixed}} \\
+ \hline
+ $e0$   &  initial susceptible  & 10 & 10\\
+ $ti$ & $t_i$ & 10 & 10 \\
+ $th$ & $t_h$ & 8 & 8\\
+ $mi$ & $m_i$ (from data) & 0.0154 & 0.0154 \\
+ $mh$ & $m_h$ (from data) & 0.2202 & 0.2202\\
+ $eta$ & $\frac{\beta_w}{\beta_s+\beta_w}$ & 0.5 & 0.5 \\
+ %$\textcolor{red}{phi\_minus/phi\_plus}$ & \textcolor{red}{ratio of infection cost parameters} $\textcolor{red}{\frac{\phi^-}{\phi^+}}$ & \textcolor{red}{0.25} & \textcolor{red}{0.25} \\
+ \hline
+ \multicolumn{4}{|c|}{\textsc{Flexible}} \\
+ \hline
+$\textcolor{red}{phi\_minus/phi\_plus}$ & \textcolor{red}{ratio of infection cost parameters} $\textcolor{red}{\frac{\phi^-}{\phi^+}}$ & \textcolor{red}{[0.01,0.1]} & \textcolor{red}{0.1} \\
+ $beta$ & $\beta_s+\beta_w $ & [0.20, 0.40] & 0.3453\\
+ $gamma$ & $\gamma$ & [0.05, 0.25] & 0.0991 \\
+ $\textcolor{black}{phi\_plus}$ & $\textcolor{black}{\phi^+}$ & \textcolor{black}{[0,300]} & \textcolor{black}{172.5304}\\
+ $rl1$ & & [0.95, 0.995] & 0.995\\
+ $rl2$ & & [0.95, 0.995] & 0.995\\
+ $\textcolor{black}{c}$ & \textcolor{black}{cost parameter} $\textcolor{black}{c}$ & \textcolor{black}{[0.01, 0.50]} & \textcolor{black}{0.3226}\\
+ \hline
+\end{tabular}
+\end{center}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_phi-ratio/VF_50iters.jpg}
+\end{figure}
+
+\begin{figure}[htbp!]
+\includegraphics[width=14cm]{../../Figures/Estimation_Figures/Optimal_phi-ratio/OP_50iters.jpg}
+\end{figure}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
