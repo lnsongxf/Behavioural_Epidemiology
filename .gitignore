@@ -1,3 +1,7 @@
+## Remove Folders and jpg files from being tracked
+*.jpg
+Notes/NotesV2_Title
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
